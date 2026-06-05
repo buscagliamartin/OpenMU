@@ -205,9 +205,34 @@ public class Character
     public int InventoryExtensions { get; set; }
 
     /// <summary>
+    /// Gets or sets the character's current Duel Ladder rating.
+    /// </summary>
+    public int DuelRating { get; set; }
+
+    /// <summary>
+    /// Gets or sets the character's Duel Ladder wins.
+    /// </summary>
+    public int DuelWins { get; set; }
+
+    /// <summary>
+    /// Gets or sets the character's Duel Ladder losses.
+    /// </summary>
+    public int DuelLosses { get; set; }
+
+    /// <summary>
+    /// Gets or sets the last-known Duel Ladder reset bracket.
+    /// </summary>
+    public byte DuelResetBracket { get; set; }
+
+    /// <summary>
     /// Gets or sets the key configuration, which is set by the client and just saved as is.
     /// </summary>
     public byte[]? KeyConfiguration { get; set; }
+
+    /// <summary>
+    /// Gets or sets the mu helper configuration, which is set by the client and saved as is.
+    /// </summary>
+    public byte[]? MuHelperConfiguration { get; set; }
 
     /// <summary>
     /// Gets or sets the stat attributes.

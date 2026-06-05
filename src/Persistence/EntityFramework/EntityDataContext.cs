@@ -51,6 +51,20 @@ public class EntityDataContext : ExtendedTypeContext
             entity.HasIndex(account => account.LoginName).IsUnique();
         });
 
+        modelBuilder.Entity<WCoinTransaction>(entity =>
+        {
+            entity.Property(transaction => transaction.Reason).HasMaxLength(32).IsRequired();
+            entity.Property(transaction => transaction.Source).HasMaxLength(64).IsRequired();
+            entity.Property(transaction => transaction.Actor).HasMaxLength(64).IsRequired();
+            entity.Property(transaction => transaction.Note).HasMaxLength(256).IsRequired();
+            entity.HasOne(transaction => transaction.RawAccount)
+                .WithMany()
+                .HasForeignKey(transaction => transaction.AccountId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(transaction => new { transaction.AccountId, transaction.Timestamp });
+        });
+
         modelBuilder.Entity<Character>(entity =>
         {
             entity.Property(character => character.Name).HasMaxLength(10).IsRequired();
@@ -61,6 +75,42 @@ public class EntityDataContext : ExtendedTypeContext
             accountKey.DeleteBehavior = DeleteBehavior.Cascade;
 
             entity.HasMany(character => character.RawLetters).WithOne(letter => letter.Receiver!).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuctionListing>(entity =>
+        {
+            entity.Property(listing => listing.SellerCharacterName).HasMaxLength(32).IsRequired();
+            entity.Property(listing => listing.BuyerCharacterName).HasMaxLength(32).IsRequired();
+            entity.Property(listing => listing.ItemDisplayName).HasMaxLength(160).IsRequired();
+            entity.HasOne(listing => listing.RawEscrowItem)
+                .WithMany()
+                .HasForeignKey(listing => listing.EscrowItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(listing => listing.RawEscrowStorage)
+                .WithOne()
+                .HasForeignKey<AuctionListing>(listing => listing.EscrowStorageId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(listing => listing.ListingNumber).IsUnique();
+            entity.HasIndex(listing => new { listing.BuyerCharacterId, listing.Status });
+            entity.HasIndex(listing => new { listing.SellerCharacterId, listing.Status });
+            entity.HasIndex(listing => new { listing.Status, listing.ExpiresAt });
+        });
+
+        modelBuilder.Entity<AuctionMailboxEntry>(entity =>
+        {
+            entity.Property(entry => entry.OwnerCharacterName).HasMaxLength(32).IsRequired();
+            entity.Property(entry => entry.ItemDisplayName).HasMaxLength(160).IsRequired();
+            entity.Property(entry => entry.SenderCharacterName).HasMaxLength(32).IsRequired();
+            entity.HasOne(entry => entry.RawItem)
+                .WithMany()
+                .HasForeignKey(entry => entry.ItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(entry => entry.RawItemStorage)
+                .WithOne()
+                .HasForeignKey<AuctionMailboxEntry>(entry => entry.ItemStorageId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(entry => entry.ListingNumber);
+            entity.HasIndex(entry => new { entry.OwnerCharacterId, entry.ClaimedAt, entry.Type });
         });
 
         modelBuilder.Entity<ItemStorage>().HasMany(storage => storage.RawItems).WithOne(item => item.RawItemStorage!);
