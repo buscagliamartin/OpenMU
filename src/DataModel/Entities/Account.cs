@@ -89,6 +89,22 @@ public class Account
     public AccountState State { get; set; }
 
     /// <summary>
+    /// Gets or sets the date and time until which VIP state is valid.
+    /// </summary>
+    /// <remarks>
+    /// Foundation field only. VIP account state and benefit behavior are migrated separately.
+    /// </remarks>
+    public DateTime? VipExpirationDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the W Coin balance of the account.
+    /// </summary>
+    /// <remarks>
+    /// Foundation field only. Cash shop purchase, gift, storage, consume, and real-money behavior are not enabled by this model.
+    /// </remarks>
+    public long WCoin { get; set; }
+
+    /// <summary>
     /// Gets or sets the timezone of the player, difference to UTC.
     /// </summary>
     public short TimeZone { get; set; }
@@ -110,6 +126,91 @@ public class Account
     /// Gets or sets a value indicating whether this instance is vault extended.
     /// </summary>
     public bool IsVaultExtended { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jewel of Bless balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankBless { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jewel of Soul balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankSoul { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jewel of Life balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankLife { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jewel of Creation balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankCreation { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jewel of Guardian balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankGuardian { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Gemstone balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankGemstone { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jewel of Harmony balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankHarmony { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Jewel of Chaos balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankChaos { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Lower Refine Stone balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankLowerRefineStone { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Higher Refine Stone balance held by the account jewel bank.
+    /// </summary>
+    public int JewelBankHigherRefineStone { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Box of Kundun +1 balance held by the account item bank.
+    /// </summary>
+    public int JewelBankKundun1 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Box of Kundun +2 balance held by the account item bank.
+    /// </summary>
+    public int JewelBankKundun2 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Box of Kundun +3 balance held by the account item bank.
+    /// </summary>
+    public int JewelBankKundun3 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Box of Kundun +4 balance held by the account item bank.
+    /// </summary>
+    public int JewelBankKundun4 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Box of Kundun +5 balance held by the account item bank.
+    /// </summary>
+    public int JewelBankKundun5 { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Blue Chocolate Box balance held by the account item bank.
+    /// </summary>
+    public int JewelBankChocoBlue { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Pink Chocolate Box balance held by the account item bank.
+    /// </summary>
+    public int JewelBankChocoPink { get; set; }
 
     /// <summary>
     /// Gets or sets the characters.
