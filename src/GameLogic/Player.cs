@@ -10,12 +10,14 @@ using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.GuildWar;
 using MUnique.OpenMU.GameLogic.MiniGames;
+using MUnique.OpenMU.GameLogic.MuHelper;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.GameLogic.PlayerActions;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.GameLogic.Views.Character;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
+using MUnique.OpenMU.GameLogic.Views.MuHelper;
 using MUnique.OpenMU.GameLogic.Views.Quest;
 using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Interfaces;
@@ -150,6 +152,17 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// Gets the selected character.
     /// </summary>
     public Character? SelectedCharacter => this._selectedCharacter;
+
+    /// <summary>
+    /// Gets or sets the deserialized Mu Helper settings for the selected character.
+    /// </summary>
+    public IMuHelperSettings? MuHelperSettings { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the online Mu Helper is currently active.
+    /// Phase 1 only tracks client status; it does not run server-side helper behavior.
+    /// </summary>
+    public bool IsMuHelperActive { get; set; }
 
     /// <summary>
     /// Gets or sets the pose of the currently selected character.
@@ -1496,6 +1509,12 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
     private async ValueTask OnPlayerEnteredWorldAsync()
     {
+        if (this.SelectedCharacter!.MuHelperConfiguration is { } muHelperConfiguration)
+        {
+            this.MuHelperSettings = MuHelperSettingsSerializer.TryDeserialize(muHelperConfiguration);
+            await this.InvokeViewPlugInAsync<IMuHelperConfigurationUpdatePlugIn>(p => p.UpdateMuHelperConfigurationAsync(muHelperConfiguration)).ConfigureAwait(false);
+        }
+
         this.Attributes = new ItemAwareAttributeSystem(this.SelectedCharacter!);
         this.Inventory = new InventoryStorage(this, this.GameContext);
         this.ShopStorage = new ShopStorage(this);
