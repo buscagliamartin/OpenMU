@@ -41,6 +41,57 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<bool>("IsVaultExtended")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("JewelBankBless")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankChaos")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankCreation")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankGemstone")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankGuardian")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankHarmony")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankHigherRefineStone")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankLife")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankLowerRefineStone")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankSoul")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankKundun1")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankKundun2")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankKundun3")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankKundun4")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankKundun5")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankChocoBlue")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("JewelBankChocoPink")
+                        .HasColumnType("integer");
+
                     b.Property<string>("LanguageIsoCode")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -77,6 +128,12 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("VipExpirationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("WCoin")
+                        .HasColumnType("bigint");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LoginName")
@@ -101,6 +158,51 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.HasIndex("CharacterClassId");
 
                     b.ToTable("AccountCharacterClass", "data");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.WCoinTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BalanceAfter")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId", "Timestamp");
+
+                    b.ToTable("WCoinTransaction", "data");
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AppearanceData", b =>
@@ -3476,6 +3578,17 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Navigation("Account");
 
                     b.Navigation("CharacterClass");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.WCoinTransaction", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", "RawAccount")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RawAccount");
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AppearanceData", b =>
