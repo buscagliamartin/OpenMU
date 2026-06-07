@@ -77,6 +77,12 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.SkillEntry, MUnique.OpenMU.DataModel.Entities.SkillEntry>()
             .Include<SkillEntry, BasicModel.SkillEntry>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.AuctionListing, MUnique.OpenMU.DataModel.Entities.AuctionListing>()
+            .Include<AuctionListing, BasicModel.AuctionListing>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.AuctionMailboxEntry, MUnique.OpenMU.DataModel.Entities.AuctionMailboxEntry>()
+            .Include<AuctionMailboxEntry, BasicModel.AuctionMailboxEntry>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.WCoinTransaction, MUnique.OpenMU.DataModel.Entities.WCoinTransaction>()
             .Include<WCoinTransaction, BasicModel.WCoinTransaction>();
 

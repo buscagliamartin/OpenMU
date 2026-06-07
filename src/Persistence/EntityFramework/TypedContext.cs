@@ -25,6 +25,7 @@ internal class TypedContext : EntityDataContext, ITypedContext
         { typeof(GameServerEndpoint), [typeof(GameClientDefinition)] },
         { typeof(ConnectServerDefinition), [typeof(GameClientDefinition)] },
         { typeof(DuelArea), [typeof(GameMapDefinition)] },
+        { typeof(MUnique.OpenMU.DataModel.Entities.AuctionListing), [typeof(MUnique.OpenMU.DataModel.Entities.AuctionMailboxEntry)] },
     };
 
     private IEntityType? _rootType;
