@@ -72,17 +72,19 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
             .Distinct();
 
         var result = Enumerable.Empty<PowerUpDefinition>();
-        foreach (var group in itemGroups)
+        var alwaysGroups = activeItems.SelectMany(i => i.Definition!.PossibleItemSetGroups).Where(i => i.AlwaysApplies).Distinct();
+        foreach (var group in alwaysGroups.Concat(itemGroups).Distinct())
         {
-            if (group.AlwaysApplies)
+            if (group.Options is not { } options)
             {
-                result = result.Concat(group.Options.Select(o => o.PowerUpDefinition ?? throw Error.NotInitializedProperty(o, nameof(o.PowerUpDefinition))));
-
+                this._logger.LogWarning("Options of set {group} is not initialized", group);
                 continue;
             }
 
-            var itemsOfGroup = activeItems.Where(i => i.ItemSetGroups.Any(ios => ios.ItemSetGroup == group)
-                                                      && (group.SetLevel == 0 || i.Level >= group.SetLevel));
+            var itemsOfGroup = activeItems.Where(i =>
+                ((group.AlwaysApplies && i.Definition!.PossibleItemSetGroups.Contains(group))
+                 || i.ItemSetGroups.Any(ios => ios.ItemSetGroup == group))
+                && (group.SetLevel == 0 || i.Level >= group.SetLevel));
             var setMustBeComplete = group.MinimumItemCount == group.Items.Count;
             if (group.SetLevel > 0 && setMustBeComplete && itemsOfGroup.All(i => i.Level > group.SetLevel))
             {
@@ -96,14 +98,14 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
             if (setIsComplete)
             {
                 // Take all options when the set is complete
-                result = result.Concat(group.Options.Select(o => o.PowerUpDefinition ?? throw Error.NotInitializedProperty(o, nameof(o.PowerUpDefinition))));
+                result = result.Concat(options.PossibleOptions.Select(o => o.PowerUpDefinition ?? throw Error.NotInitializedProperty(o, nameof(o.PowerUpDefinition))));
                 continue;
             }
 
             if (itemCount >= group.MinimumItemCount)
             {
                 // Take the first n-1 options
-                result = result.Concat(group.Options.OrderBy(o => o.Number)
+                result = result.Concat(options.PossibleOptions.OrderBy(o => o.Number)
                     .Take(itemCount - 1)
                     .Select(o => o.PowerUpDefinition ?? throw Error.NotInitializedProperty(o, nameof(o.PowerUpDefinition))));
             }

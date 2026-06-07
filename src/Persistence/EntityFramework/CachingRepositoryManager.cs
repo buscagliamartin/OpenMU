@@ -49,7 +49,7 @@ public class CachingRepositoryManager : RepositoryManager
         this.RegisterRepository(new ConfigurationTypeRepository<ItemOptionDefinition>(this, config => config.RawItemOptions));
         this.RegisterRepository(new ConfigurationTypeRepository<IncreasableItemOption>(
             this,
-            config => config.RawItemOptions.SelectMany(o => o.RawPossibleOptions).Concat(config.RawItemSetGroups.SelectMany(g => g.RawOptions)).Distinct().ToList()));
+            config => config.RawItemOptions.SelectMany(o => o.RawPossibleOptions).Distinct().ToList()));
         this.RegisterRepository(new ConfigurationTypeRepository<AttributeDefinition>(this, config => config.RawAttributes));
         this.RegisterRepository(new ConfigurationTypeRepository<DropItemGroup>(this, config => config.RawDropItemGroups));
         this.RegisterRepository(new ConfigurationTypeRepository<CharacterClass>(this, config => config.RawCharacterClasses));
