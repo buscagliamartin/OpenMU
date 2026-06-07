@@ -54,8 +54,7 @@ public class ItemSetGroup
     /// <remarks>
     /// The order is defined by <see cref="ItemOption.Number"/>.
     /// </remarks>
-    [MemberOfAggregate]
-    public virtual ICollection<IncreasableItemOption> Options { get; protected set; } = null!;
+    public virtual ItemOptionDefinition? Options { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the items of this set.

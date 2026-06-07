@@ -158,12 +158,23 @@ public class Armors : InitializerBase
         return defenseBonus;
     }
 
-    private void CreateSetGroup(int setLevel, IncreasableItemOption option, ICollection<ItemDefinition> group)
+    private ItemOptionDefinition CreateSetOptions(string name, IncreasableItemOption option)
+    {
+        var definition = this.Context.CreateNew<ItemOptionDefinition>();
+        definition.Name = name;
+        definition.AddChance = 0;
+        definition.AddsRandomly = false;
+        definition.PossibleOptions.Add(option);
+        this.GameConfiguration.ItemOptions.Add(definition);
+        return definition;
+    }
+
+    private void CreateSetGroup(int setLevel, ItemOptionDefinition options, ICollection<ItemDefinition> group)
     {
         var setForDefense = this.Context.CreateNew<ItemSetGroup>();
         setForDefense.Name = $"{group.First().Name.Split(' ')[0]} Defense Bonus (Level {setLevel})";
         setForDefense.MinimumItemCount = group.Count;
-        setForDefense.Options.Add(option);
+        setForDefense.Options = options;
         setForDefense.SetLevel = (byte)setLevel;
 
         foreach (var item in group)
@@ -184,11 +195,12 @@ public class Armors : InitializerBase
         defenseRateBonus.PowerUpDefinition.Boost.ConstantValue.AggregateType = AggregateType.Multiplicate;
         defenseRateBonus.PowerUpDefinition.Boost.ConstantValue.Value = 1.1f;
         defenseRateBonus.PowerUpDefinition.TargetAttribute = Stats.DefenseRatePvm.GetPersistent(this.GameConfiguration);
+        var defenseRateBonusDefinition = this.CreateSetOptions("Complete Set Bonus (any level)", defenseRateBonus);
 
-        var defenseBonus = new Dictionary<int, IncreasableItemOption>
+        var defenseBonus = new Dictionary<int, ItemOptionDefinition>
         {
-            { 10, this.BuildDefenseBonusOption(1.05f) },
-            { 11, this.BuildDefenseBonusOption(1.10f) },
+            { 10, this.CreateSetOptions("Complete Set Bonus (Level 10)", this.BuildDefenseBonusOption(1.05f)) },
+            { 11, this.CreateSetOptions("Complete Set Bonus (Level 11)", this.BuildDefenseBonusOption(1.10f)) },
         };
 
         foreach (var group in sets)
@@ -196,7 +208,7 @@ public class Armors : InitializerBase
             var setForDefenseRate = this.Context.CreateNew<ItemSetGroup>();
             setForDefenseRate.Name = group.First().Name.Split(' ')[0] + " Defense Rate Bonus";
             setForDefenseRate.MinimumItemCount = group.Count();
-            setForDefenseRate.Options.Add(defenseRateBonus);
+            setForDefenseRate.Options = defenseRateBonusDefinition;
             foreach (var item in group)
             {
                 var itemOfSet = this.Context.CreateNew<ItemOfItemSet>();
