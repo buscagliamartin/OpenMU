@@ -659,6 +659,18 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<long>("Experience")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("DuelLosses")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DuelRating")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("DuelResetBracket")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("DuelWins")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryExtensions")
                         .HasColumnType("integer");
 

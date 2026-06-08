@@ -455,6 +455,23 @@ public sealed class DuelRoom : AsyncDisposable
         var winner = this.ScoreRequester > this.ScoreOpponent ? this.Requester : this.Opponent;
         var loser = this.Requester == winner ? this.Opponent : this.Requester;
         await this.AllPlayers.ForEachAsync(player => player.InvokeViewPlugInAsync<IDuelFinishedPlugIn>(p => p.DuelFinishedAsync(winner, loser))).ConfigureAwait(false);
+
+        // BarnaMu: record the result on the Duel Ladder (ELO + W/L, gated by anti-farm checks),
+        // capturing the rating change so a Match History entry can be logged for both characters.
+        var winnerChar = winner.SelectedCharacter;
+        var loserChar = loser.SelectedCharacter;
+        var winnerBefore = winnerChar?.DuelRating ?? 0;
+        var loserBefore = loserChar?.DuelRating ?? 0;
+        await DuelLadderService.RecordResultAsync(winner, loser).ConfigureAwait(false);
+        var winnerScore = (byte)Math.Max(this.ScoreRequester, this.ScoreOpponent);
+        var loserScore = (byte)Math.Min(this.ScoreRequester, this.ScoreOpponent);
+        DuelMatchHistoryService.Record(
+            winnerChar,
+            loserChar,
+            winnerScore,
+            loserScore,
+            (winnerChar?.DuelRating ?? winnerBefore) - winnerBefore,
+            (loserChar?.DuelRating ?? loserBefore) - loserBefore);
     }
 
     private async ValueTask SendCurrentStateToAllPlayersAsync()
