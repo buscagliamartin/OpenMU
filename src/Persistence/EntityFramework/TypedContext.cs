@@ -19,12 +19,17 @@ internal class TypedContext : EntityDataContext, ITypedContext
     private static readonly ConcurrentDictionary<Type, ContextInfo> ContextInfoPerEditType = new();
 
     // ReSharper disable once StaticMemberInGenericType That's okay. We don't need the behavior, but introducing a base class is just too much boilerplate.
-    private static readonly IReadOnlyDictionary<Type, Type[]> AdditionalTypes = new Dictionary<Type, Type[]>
+    private static readonly IReadOnlyDictionary<Type, Type[]> AdditionalReadOnlyTypes = new Dictionary<Type, Type[]>
     {
         { typeof(GameServerDefinition), [typeof(GameServerConfiguration)] },
         { typeof(GameServerEndpoint), [typeof(GameClientDefinition)] },
         { typeof(ConnectServerDefinition), [typeof(GameClientDefinition)] },
         { typeof(DuelArea), [typeof(GameMapDefinition)] },
+    };
+
+    private static readonly IReadOnlyDictionary<Type, Type[]> AdditionalMutableTypes = new Dictionary<Type, Type[]>
+    {
+        { typeof(MUnique.OpenMU.DataModel.Entities.AuctionListing), [typeof(MUnique.OpenMU.DataModel.Entities.AuctionMailboxEntry)] },
     };
 
     private IEntityType? _rootType;
@@ -85,8 +90,12 @@ internal class TypedContext : EntityDataContext, ITypedContext
         var additionalTypes = editTypes
             .Select(et => (et, entityType: modelTypes.FirstOrDefault(mt => mt.ClrType == et.EntityType)))
             .Where(t => t.entityType is not null)
-            .SelectMany(t => DetermineAdditionalTypes(modelTypes.Select(m => m.ClrType), t.entityType!))
+            .SelectMany(t => DetermineAdditionalTypes(modelTypes.Select(m => m.ClrType), t.entityType!, AdditionalReadOnlyTypes, true))
             .ToList();
+        additionalTypes.AddRange(editTypes
+            .Select(et => (et, entityType: modelTypes.FirstOrDefault(mt => mt.ClrType == et.EntityType)))
+            .Where(t => t.entityType is not null)
+            .SelectMany(t => DetermineAdditionalTypes(modelTypes.Select(m => m.ClrType), t.entityType!, AdditionalMutableTypes, false)));
         editTypes.AddRange(additionalTypes);
 
         var finalEditTypes = new HashSet<Type>();
@@ -122,10 +131,14 @@ internal class TypedContext : EntityDataContext, ITypedContext
                 gameConfigNav?.Name));
     }
 
-    private static IEnumerable<(Type EntityType, bool IsReadOnly, bool IsBackReference)> DetermineAdditionalTypes(IEnumerable<Type> modelTypes, IMutableEntityType type)
+    private static IEnumerable<(Type EntityType, bool IsReadOnly, bool IsBackReference)> DetermineAdditionalTypes(
+        IEnumerable<Type> modelTypes,
+        IMutableEntityType type,
+        IReadOnlyDictionary<Type, Type[]> additionalTypesByType,
+        bool isReadOnly)
     {
-        if (!AdditionalTypes.TryGetValue(type.ClrType, out var additionalTypes)
-            && !AdditionalTypes.TryGetValue(type.ClrType.BaseType!, out additionalTypes))
+        if (!additionalTypesByType.TryGetValue(type.ClrType, out var additionalTypes)
+            && !additionalTypesByType.TryGetValue(type.ClrType.BaseType!, out additionalTypes))
         {
             yield break;
         }
@@ -137,7 +150,7 @@ internal class TypedContext : EntityDataContext, ITypedContext
 
             if (addEntityType is not null)
             {
-                yield return (addEntityType, true, false);
+                yield return (addEntityType, isReadOnly, false);
             }
         }
     }
