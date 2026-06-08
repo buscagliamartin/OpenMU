@@ -9,6 +9,9 @@ namespace MUnique.OpenMU.GameLogic.MuHelper;
 /// </summary>
 public interface IMuHelperSettings
 {
+    /// <summary>Gets the server-side helper behavior mode.</summary>
+    MuHelperMode Mode { get; }
+
     /// <summary>Gets the always-active basic attack skill ID (0 = no skill, use normal attack).</summary>
     int BasicSkillId { get; }
 

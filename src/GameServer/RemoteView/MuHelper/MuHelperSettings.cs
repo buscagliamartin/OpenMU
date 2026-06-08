@@ -11,6 +11,9 @@ using MUnique.OpenMU.GameLogic.MuHelper;
 /// </summary>
 public sealed class MuHelperSettings : IMuHelperSettings
 {
+    /// <summary>Gets the server-side helper behavior mode.</summary>
+    public MuHelperMode Mode { get; init; } = MuHelperMode.Attack;
+
     /// <summary>Gets the always-active basic attack skill ID (0 = no skill, use normal attack).</summary>
     public int BasicSkillId { get; init; }
 

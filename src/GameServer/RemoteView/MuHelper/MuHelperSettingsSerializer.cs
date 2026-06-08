@@ -34,7 +34,8 @@ using MUnique.OpenMU.GameLogic.MuHelper;
 ///  27     [Skill2Delay:1][Skill2Con:1][Skill2PreCon:1][Skill2SubCon:2]
 ///         [RepairItem:1][PickAllNearItems:1][PickSelectedItems:1]
 ///  28     PetAttack (BYTE: 0=cease, 1=auto, 2=together)
-///  29-64  _UnusedPadding[36]
+///  29     ServerMode (BYTE: 0=ATTACK, 1=BUFF, 2=BASIC ATTACK; defaults to ATTACK)
+///  30-64  _UnusedPadding[35]
 ///  65-244 ExtraItems[12][15]  (null-terminated ASCII item name filters)
 ///  245-256 (trailing padding, ignored)
 /// </code>
@@ -61,6 +62,7 @@ public static class MuHelperSettingsSerializer
     private const int Skill1FlagsOffset = 26;
     private const int Skill2FlagsOffset = 27;
     private const int PetAttackOffset = 28;
+    private const int ModeOffset = 29;
     private const int ExtraItemsOffset = 65;
     private const int ExtraItemsEndOffset = 245;
     private const int ExtraItemSlotCount = 12;
@@ -179,6 +181,7 @@ public static class MuHelperSettingsSerializer
         bool pickSelect = (skill2Flags & PickSelectItemsFlag) != 0;
 
         int petAttack = blob[PetAttackOffset];
+        var mode = ParseMode(blob[ModeOffset]);
 
         var extraNames = new List<string>();
         if (blob.Length >= ExtraItemsEndOffset)
@@ -201,6 +204,7 @@ public static class MuHelperSettingsSerializer
 
         return new MuHelperSettings
         {
+            Mode = mode,
             BasicSkillId = basicSkill,
             ActivationSkill1Id = activationSkill1,
             ActivationSkill2Id = activationSkill2,
@@ -250,4 +254,11 @@ public static class MuHelperSettingsSerializer
 
     private static int BlobReadWord(byte[] blob, int offset)
         => blob[offset] | (blob[offset + 1] << 8);
+
+    private static MuHelperMode ParseMode(byte value)
+    {
+        return Enum.IsDefined(typeof(MuHelperMode), (int)value)
+            ? (MuHelperMode)value
+            : MuHelperMode.Attack;
+    }
 }
