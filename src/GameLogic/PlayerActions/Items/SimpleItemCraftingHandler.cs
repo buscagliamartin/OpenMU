@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.Items;
 
 using MUnique.OpenMU.DataModel.Configuration.ItemCrafting;
 using MUnique.OpenMU.DataModel.Configuration.Items;
+using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Views.NPC;
 
 /// <summary>
@@ -114,6 +115,16 @@ public class SimpleItemCraftingHandler : BaseItemCraftingHandler
         if (this._settings.MaximumSuccessPercent > 0)
         {
             rate = Math.Min(this._settings.MaximumSuccessPercent, rate);
+        }
+
+        // BarnaMu VIP Chaos Machine perk: +10 percentage points to the crafting success rate for VIP
+        // (and GM) accounts, applied after the per-craft MaximumSuccessPercent cap (so it may exceed
+        // that cap) but still bounded by the absolute 100% cap below. VIP is computed from
+        // Account.VipExpirationDate via IsVipActive(); non-VIP / non-GM accounts are unaffected.
+        if (player.Account.IsVipActive()
+            || player.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible)
+        {
+            rate += 10;
         }
 
         successRate = (byte)Math.Min(100, rate);
