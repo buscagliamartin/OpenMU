@@ -86,8 +86,14 @@ public class DefaultDropGenerator : IDropGenerator
             this.PartitionDropGroups(await GetQuestItemGroupsAsync(player).ConfigureAwait(false) ?? [], monster);
         }
 
+        // BarnaMu VIP drop perk: VIP (and GM) accounts get a +40% chance-group drop multiplier
+        // (×1.40), matching the messy server. It is applied uniformly to chance-based drop groups in
+        // SelectRandomGroup (not to guaranteed groups or money). Non-VIP / non-GM accounts pass 1.0,
+        // which is byte-identical to upstream.
+        var dropMultiplier = (player.Account.IsVipActive()
+            || player.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible) ? 1.40 : 1.0;
         uint money = 0;
-        var (droppedItems, moneyResult) = this.GenerateDrops(monster, gainedExperience);
+        var (droppedItems, moneyResult) = this.GenerateDrops(monster, gainedExperience, dropMultiplier);
         if (moneyResult > 0)
         {
             money = moneyResult;
@@ -270,7 +276,7 @@ public class DefaultDropGenerator : IDropGenerator
         return itemDefinition.MaximumDropLevel is not { } maxDropLevel || monsterLevel <= maxDropLevel;
     }
 
-    private (IList<Item>? Items, uint Money) GenerateDrops(MonsterDefinition monster, int gainedExperience)
+    private (IList<Item>? Items, uint Money) GenerateDrops(MonsterDefinition monster, int gainedExperience, double dropMultiplier = 1.0)
     {
         uint money = 0;
         List<Item>? droppedItems = null;
@@ -310,7 +316,7 @@ public class DefaultDropGenerator : IDropGenerator
 
             for (int i = 0; i < remainingDrops; i++)
             {
-                var group = this.SelectRandomGroup(this._chanceDropGroups, totalChance);
+                var group = this.SelectRandomGroup(this._chanceDropGroups, totalChance, dropMultiplier);
                 if (group is null)
                 {
                     continue;
@@ -550,19 +556,24 @@ public class DefaultDropGenerator : IDropGenerator
         };
     }
 
-    private DropItemGroup? SelectRandomGroup(IEnumerable<DropItemGroup> groups, double totalChance)
+    private DropItemGroup? SelectRandomGroup(IEnumerable<DropItemGroup> groups, double totalChance, double dropMultiplier = 1.0)
     {
+        // BarnaMu VIP drop perk: dropMultiplier (1.40 for VIP/GM, 1.0 otherwise) scales each chance
+        // group's effective chance uniformly, so the boost works whether totalChance is below or above
+        // 1.0. With the default 1.0 the behavior is identical to upstream.
+        var effectiveTotalChance = totalChance * dropMultiplier;
         var remainingThreshold = this._randomizer.NextDouble();
-        if (totalChance > 1.0)
+        if (effectiveTotalChance > 1.0)
         {
-            remainingThreshold *= totalChance;
+            remainingThreshold *= effectiveTotalChance;
         }
 
         foreach (var group in groups)
         {
-            if (remainingThreshold > group.Chance)
+            var effectiveChance = group.Chance * dropMultiplier;
+            if (remainingThreshold > effectiveChance)
             {
-                remainingThreshold -= group.Chance;
+                remainingThreshold -= effectiveChance;
             }
             else
             {

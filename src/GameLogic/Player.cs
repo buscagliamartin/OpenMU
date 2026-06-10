@@ -1194,16 +1194,28 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         var isMaxLevel = currentLevel == this.GameContext.Configuration.MaximumLevel;
         var isAddMasterExperience = characterClass.IsMasterClass && isMaxLevel;
 
+        // BarnaMu VIP EXP perk: VIP (and GM) accounts gain more experience — ×35/30 normal, ×20/15
+        // master — matching the messy server. The bonus is applied ONLY to the experience GRANTED to
+        // the player (and pet); this method still RETURNS the un-boosted base experience, which is what
+        // the money/zen drop is derived from, so the VIP exp bonus does not inflate zen. Non-VIP /
+        // non-GM accounts grant the unchanged base experience.
+        var grantedExperience = experience;
+        if (this.Account.IsVipActive()
+            || this.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible)
+        {
+            grantedExperience = (int)(experience * (isAddMasterExperience ? (20.0 / 15.0) : (35.0 / 30.0)));
+        }
+
         if (isAddMasterExperience)
         {
-            await this.AddMasterExperienceAsync(experience, killedObject).ConfigureAwait(false);
+            await this.AddMasterExperienceAsync(grantedExperience, killedObject).ConfigureAwait(false);
         }
         else
         {
-            await this.AddExperienceAsync(experience, killedObject).ConfigureAwait(false);
+            await this.AddExperienceAsync(grantedExperience, killedObject).ConfigureAwait(false);
         }
 
-        await this.AddPetExperienceAsync(experience).ConfigureAwait(false);
+        await this.AddPetExperienceAsync(grantedExperience).ConfigureAwait(false);
 
         return experience;
     }
