@@ -91,8 +91,8 @@ public static class DuelSeasonService
 
         report.Add($"=== Duel Ladder Season {season} Ended === {now:yyyy-MM-dd HH:mm} UTC ===");
 
-        // Phase B: champions are recorded; the VIP season reward is deferred in this baseline
-        // (VIP runtime lands in a later branch). Re-enable GrantVipAsync there.
+        // Phase B: champions are recorded and granted their VIP season reward — VIP time is written to
+        // the existing Account.VipExpirationDate via GrantVipAsync (never-shorten semantics).
         foreach (var champ in champions)
         {
             if (string.IsNullOrEmpty(champ.Name))
@@ -110,7 +110,7 @@ public static class DuelSeasonService
             try
             {
                 await GrantVipAsync(gameContext, champ.Name, expiration).ConfigureAwait(false);
-                report.Add($"T{champ.Bracket} #{champ.Rank} {champ.Name}: champion (VIP reward deferred to VIP branch; would expire {expiration:yyyy-MM-dd})");
+                report.Add($"T{champ.Bracket} #{champ.Rank} {champ.Name}: VIP reward applied (VIP until at least {expiration:yyyy-MM-dd}).");
             }
             catch (Exception ex)
             {
@@ -124,9 +124,9 @@ public static class DuelSeasonService
         WriteSeasonNumber(logDir, season + 1, logger);
 
         logger.LogInformation(
-            "Duel Ladder season {Season} ended at {Time}; {Count} characters reset; {Champs} champions archived (VIP reward deferred).",
+            "Duel Ladder season {Season} ended at {Time}; {Count} characters reset; {Champs} champions archived and granted VIP reward.",
             season, now, resetCount, champions.Count);
-        report.Add($"{resetCount} characters reset to {DuelLadderService.BaseRating}; {champions.Count} champions archived (VIP reward deferred).");
+        report.Add($"{resetCount} characters reset to {DuelLadderService.BaseRating}; {champions.Count} champions archived and granted VIP reward.");
         return report;
     }
 
@@ -185,16 +185,38 @@ public static class DuelSeasonService
             .ToList();
     }
 
-    private static ValueTask GrantVipAsync(IGameContext gameContext, string characterName, DateTime expiration)
+    private static async ValueTask GrantVipAsync(IGameContext gameContext, string characterName, DateTime expiration)
     {
-        // BarnaMu clean migration: VIP runtime (AccountState.Vip) is deferred to the later VIP branch,
-        // so the season-end VIP reward is intentionally NOT applied here (no account-state change, no
-        // VIP write). The champion is still archived to the Hall of Fame and ratings are still reset.
-        // Re-enable the actual grant (online + offline) when the VIP runtime branch lands.
-        _ = gameContext;
-        _ = characterName;
-        _ = expiration;
-        return ValueTask.CompletedTask;
+        // BarnaMu VIP reward: grant the champion VIP time by writing ONLY the existing
+        // Account.VipExpirationDate. VIP is computed (VipAccountExtensions.IsVipActive); there is no
+        // AccountState.Vip enum and no other account/player field is touched. Never-shorten semantics:
+        // if the account already has a later VIP expiration, keep it; otherwise set the computed
+        // bracket expiration -> account.VipExpirationDate = existing > expiration ? existing : expiration.
+        // Online: update the in-memory account so VIP applies immediately, then persist progress.
+        var onlinePlayer = gameContext.GetPlayerByCharacterName(characterName);
+        if (onlinePlayer?.Account is { } onlineAccount
+            && onlinePlayer.SelectedCharacter?.Name is { } selectedName
+            && selectedName.Equals(characterName, StringComparison.OrdinalIgnoreCase))
+        {
+            onlineAccount.VipExpirationDate = onlineAccount.VipExpirationDate is { } onlineExisting && onlineExisting > expiration
+                ? onlineExisting
+                : expiration;
+            await onlinePlayer.SaveProgressAsync().ConfigureAwait(false);
+            return;
+        }
+
+        // Offline: update the account directly in a new player context.
+        using var context = gameContext.PersistenceContextProvider.CreateNewPlayerContext(gameContext.Configuration);
+        var account = await context.GetAccountByCharacterNameAsync(characterName).ConfigureAwait(false);
+        if (account is null)
+        {
+            return;
+        }
+
+        account.VipExpirationDate = account.VipExpirationDate is { } existing && existing > expiration
+            ? existing
+            : expiration;
+        await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
     private static void ResetCharacter(Character character)
