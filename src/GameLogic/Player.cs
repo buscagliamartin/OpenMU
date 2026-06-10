@@ -2537,6 +2537,19 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         this.Attributes[Stats.NearbyPartyMemberCount] = 0;
         this.LogInvalidInventoryItems();
 
+        // BarnaMu VIP inventory perk: the inventory extension rows (K window) are a VIP perk. While the
+        // account has active VIP, all extension rows are granted; otherwise they are locked (0). This is
+        // re-evaluated on each enter-game, so rows lock on the first login after VIP expires; items left
+        // in extension slots are not deleted, just inaccessible until VIP is renewed. It reuses the
+        // existing upstream Character.InventoryExtensions field, the existing inventory-size logic
+        // (InventoryConstants.GetInventorySize), and the existing character-stats packet
+        // (UpdateCharacterStatsPlugIn already sends InventoryExtensions) — no schema, packet, or client
+        // change. Non-VIP accounts get 0 (the normal inventory). Matches the messy server, which gates
+        // this perk on active VIP only (GM is intentionally not included here).
+        selectedCharacter.InventoryExtensions = this.Account.IsVipActive()
+            ? InventoryConstants.MaximumNumberOfExtensions
+            : 0;
+
         this.Inventory = new InventoryStorage(this, this.GameContext);
         this.ShopStorage = new ShopStorage(selectedCharacter);
         this.TemporaryStorage = new Storage(InventoryConstants.TemporaryStorageSize, new TemporaryItemStorage());
