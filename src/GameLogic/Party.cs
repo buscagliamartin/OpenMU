@@ -241,7 +241,11 @@ public sealed class Party : AsyncDisposable
             var moneyPart = amount / this._distributionList.Count;
             foreach (var player in this._distributionList)
             {
-                player.TryAddMoney((int)(moneyPart * player.Attributes![Stats.MoneyAmountRate]));
+                // BarnaMu VIP Zen perk (party): VIP (and GM) members get +30% zen (×1.30), matching the
+                // messy server. Non-VIP / non-GM members receive the unchanged amount.
+                var vipZenBonus = (player.Account.IsVipActive()
+                    || player.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible) ? 1.30f : 1.0f;
+                player.TryAddMoney((int)(moneyPart * player.Attributes![Stats.MoneyAmountRate] * vipZenBonus));
             }
         }
         finally
@@ -383,12 +387,22 @@ public sealed class Party : AsyncDisposable
         var isAtMaxLevel = (short)attributes[Stats.Level] == player.GameContext.Configuration.MaximumLevel;
         var isMasterClass = player.SelectedCharacter?.CharacterClass?.IsMasterClass ?? false;
 
+        // BarnaMu VIP EXP perk (party): VIP (and GM) members gain more party experience — ×20/15 at
+        // master, ×35/30 otherwise — matching the messy server and the solo VIP exp bonus. Party exp
+        // does not feed the money drop (party money is distributed separately), so this never affects
+        // zen. Non-VIP / non-GM members receive the unchanged amount.
+        var vipMultiplier = (player.Account.IsVipActive()
+            || player.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible)
+            ? (isAtMaxLevel && isMasterClass ? (20.0 / 15.0) : (35.0 / 30.0))
+            : 1.0;
+
         if (isAtMaxLevel && isMasterClass)
         {
             var exp = (int)(perLevel
                             * attributes[Stats.TotalLevel]
                             * player.GameContext.MasterExperienceRate
-                            * (attributes[Stats.MasterExperienceRate] + attributes[Stats.BonusExperienceRate]));
+                            * (attributes[Stats.MasterExperienceRate] + attributes[Stats.BonusExperienceRate])
+                            * vipMultiplier);
 
             await player.AddMasterExperienceAsync(exp, killed).ConfigureAwait(false);
         }
@@ -397,7 +411,8 @@ public sealed class Party : AsyncDisposable
             var exp = (int)(perLevel
                             * attributes[Stats.Level]
                             * player.GameContext.ExperienceRate
-                            * (attributes[Stats.ExperienceRate] + attributes[Stats.BonusExperienceRate]));
+                            * (attributes[Stats.ExperienceRate] + attributes[Stats.BonusExperienceRate])
+                            * vipMultiplier);
 
             await player.AddExperienceAsync(exp, killed).ConfigureAwait(false);
         }

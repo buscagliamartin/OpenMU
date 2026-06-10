@@ -399,7 +399,11 @@ public abstract class AttackableNpcBase : NonPlayerCharacter, IAttackable
             return;
         }
 
-        var droppedMoney = new DroppedMoney((uint)(amount * (killer.Attributes?[Stats.MoneyAmountRate] ?? 1.0f)), this.Position, this.CurrentMap);
+        // BarnaMu VIP Zen perk (solo): VIP (and GM) killers get +30% zen (×1.30) on the dropped money,
+        // matching the messy server. Non-VIP / non-GM killers receive the unchanged amount.
+        var vipZenBonus = (killer.Account.IsVipActive()
+            || killer.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible) ? 1.30f : 1.0f;
+        var droppedMoney = new DroppedMoney((uint)(amount * (killer.Attributes?[Stats.MoneyAmountRate] ?? 1.0f) * vipZenBonus), this.Position, this.CurrentMap);
         await this.CurrentMap.AddAsync(droppedMoney).ConfigureAwait(false);
     }
 
