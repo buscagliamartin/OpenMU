@@ -201,6 +201,19 @@ public class LoginAction
         player.Account = account;
         player.Logger.LogDebug("Login successful, username: [{Username}].", username);
 
+        // BarnaMu VIP perks Phase 1: extended vault. Re-evaluate the existing upstream IsVaultExtended
+        // flag from current VIP/GM status at each login (active VIP via IsVipActive, computed from
+        // Account.VipExpirationDate; GMs always qualify). Active VIP or GM => extended (double) warehouse;
+        // an expired or non-VIP / non-GM account returns to the normal vault on next login. This only
+        // toggles the existing flag consumed by the upstream warehouse-size logic — stored items are
+        // never moved, deleted, migrated, or otherwise mutated, and there is no schema change.
+        var vaultExtended = account.IsVipActive()
+            || account.State is AccountState.GameMaster or AccountState.GameMasterInvisible;
+        if (account.IsVaultExtended != vaultExtended)
+        {
+            account.IsVaultExtended = vaultExtended;
+        }
+
         if (player.IsTemplatePlayer)
         {
             foreach (var character in account.Characters)
