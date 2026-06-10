@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 
 using System.Runtime.InteropServices;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -54,6 +55,12 @@ public class SetVipChatCommandPlugIn : ChatCommandPlugInBase<SetVipChatCommandPl
         {
             onlineAccount.VipExpirationDate = expiration;
             await targetPlayer.SaveProgressAsync().ConfigureAwait(false);
+
+            // BarnaMu VIP command access: refresh the Stats.IsVip attribute immediately so VIP-gated
+            // commands recognize the change without the player having to re-enter the world (the
+            // VipAttributeUpdatePlugIn otherwise sets this on the next EnteredWorld).
+            targetPlayer.Attributes?.SetStatAttribute(Stats.IsVip, onlineAccount.IsVipActive() ? 1.0f : 0.0f);
+
             await targetPlayer.ShowBlueMessageAsync($"Ahora sos VIP por {days} dia(s). Vence: {expiration:yyyy-MM-dd HH:mm} UTC.").ConfigureAwait(false);
             await gameMaster.ShowBlueMessageAsync($"VIP asignado a '{arguments.CharacterName}' por {days} dia(s) (jugador online).").ConfigureAwait(false);
             return;
