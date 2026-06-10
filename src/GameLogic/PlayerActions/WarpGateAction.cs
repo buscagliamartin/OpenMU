@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions;
 
+using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views.World;
 using MUnique.OpenMU.Pathfinding;
@@ -42,7 +43,32 @@ public class WarpGateAction
             return false;
         }
 
-        var requirement = player.SelectedCharacter?.GetEffectiveMoveLevelRequirement(enterGate.LevelRequirement);
+        // BarnaMu VIP map access: VIP (and GM) accounts get a reduced per-map entry level
+        // requirement on select high-level maps. VIP is computed from Account.VipExpirationDate
+        // via IsVipActive(); non-VIP / non-GM accounts use the unchanged enterGate.LevelRequirement.
+        // Keep this table in sync with WarpAction.cs.
+        var levelReq = enterGate.LevelRequirement;
+        if (player.Account.IsVipActive()
+            || player.Account?.State is AccountState.GameMaster or AccountState.GameMasterInvisible)
+        {
+            levelReq = enterGate.TargetGate.Map.Number switch
+            {
+                37 => 130, // Kanturu Ruins
+                38 => 200, // Kanturu Relics
+                80 => 160, // Karutan 1
+                81 => 160, // Karutan 2
+                57 => 240, // Raklion (La Cleon)
+                63 => 260, // Vulcanus
+                31 => 250, // Land of Trials (Erohim)
+                34 => 280, // Crywolf Fortress
+                41 => 300, // Barracks of Balgass
+                42 => 300, // Balgass Refuge
+                56 => 300, // Swamp of Calmness
+                _ => levelReq,
+            };
+        }
+
+        var requirement = player.SelectedCharacter?.GetEffectiveMoveLevelRequirement(levelReq);
         if (requirement > player.Attributes![Stats.Level])
         {
             await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.LevelTooLowToEnterMap)).ConfigureAwait(false);
