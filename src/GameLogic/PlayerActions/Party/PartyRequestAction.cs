@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions.Party;
 
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views.Party;
 
 /// <summary>
@@ -39,6 +40,18 @@ public class PartyRequestAction
 
         if (await toRequest.PlayerState.TryAdvanceToAsync(PlayerState.PartyRequest).ConfigureAwait(false))
         {
+            // BarnaMu PartyAuto (/re): if the target opted into auto-accept/decline via the runtime
+            // Stats.PartyAutoMode attribute (1 = auto-accept, 2 = auto-decline; 0/missing = normal),
+            // respond immediately through the existing PartyResponseAction instead of showing the
+            // popup. Mode 0 or missing falls through to the unchanged manual popup flow below.
+            var autoMode = toRequest.Attributes?[Stats.PartyAutoMode] ?? 0f;
+            if (autoMode >= 1f && !Equals(player, toRequest))
+            {
+                toRequest.LastPartyRequester = player;
+                await new PartyResponseAction().HandleResponseAsync(toRequest, autoMode < 2f).ConfigureAwait(false);
+                return;
+            }
+
             await this.SendPartyRequestAsync(toRequest, player).ConfigureAwait(false);
             await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.RequestedPlayerForParty), toRequest.Name).ConfigureAwait(false);
         }
