@@ -1409,6 +1409,12 @@ public class Stats
     public static AttributeDefinition IsVip { get; } = new(new Guid("195474D6-59A2-4033-9C30-8628ECC0097E"), "Is VIP", "The flag, if an account is a VIP.");
 
     /// <summary>
+    /// Gets the attribute for the BarnaMu party auto-response mode (runtime-only, set by the /re command;
+    /// not persisted). 0 = normal/manual popup, 1 = auto-accept party requests, 2 = auto-decline.
+    /// </summary>
+    public static AttributeDefinition PartyAutoMode { get; } = new(new Guid("2D9F4B6A-1C3E-4A85-9B7D-6E0F2A4C8D31"), "Party Auto Mode", "BarnaMu: 0 = normal/manual party-request popup, 1 = auto-accept, 2 = auto-decline. Runtime-only, set by /re.");
+
+    /// <summary>
     /// Gets the attribute for the number of points this class will receive for reset, overwrites the default <see cref="Resets.ResetConfiguration.PointsPerReset"/> value.
     /// </summary>
     public static AttributeDefinition PointsPerReset { get; } = new(new Guid("a34f4f57-b364-4cdb-9989-64cedd2cd831"), "Points Per Reset", "The number of points the player will receive for reset, overwrites the default 'PointsPerReset' value of the reset configuration.");
