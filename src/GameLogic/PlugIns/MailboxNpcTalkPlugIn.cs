@@ -10,7 +10,7 @@ using MUnique.OpenMU.GameLogic.Views.AuctionHouse;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
-/// BarnaMu: when the player talks to the Postman NPC (Lorencia, number 600), the auction Mailbox
+/// BarnaMu: when the player talks to the Postman NPC (Lorencia), the auction Mailbox
 /// opens on the client. Replaces the old Helper "Mailbox" button. Uses the existing Auction House
 /// view channel (0xBF/0x31) so no new protocol is introduced.
 /// </summary>
@@ -19,15 +19,17 @@ using MUnique.OpenMU.PlugIns;
 [Display(Name = "Mailbox NPC (Postman)", Description = "BarnaMu: opens the Mailbox when the player talks to the Postman NPC in Lorencia.")]
 public class MailboxNpcTalkPlugIn : IPlayerTalkToNpcPlugIn
 {
+    private const byte LorenciaMapNumber = 0;
+
     /// <summary>
-    /// Gets the NPC number of the Postman (defined in <c>NpcInitialization</c> and spawned in Lorencia).
+    /// Gets the NPC number of the Postman. This uses an existing client-supported passive NPC model.
     /// </summary>
-    public static short PostmanNpcNumber => 600;
+    public static short PostmanNpcNumber => 379;
 
     /// <inheritdoc />
     public async ValueTask PlayerTalksToNpcAsync(Player player, NonPlayerCharacter npc, NpcTalkEventArgs eventArgs)
     {
-        if (npc.Definition.Number != PostmanNpcNumber)
+        if (npc.Definition.Number != PostmanNpcNumber || npc.CurrentMap.Definition.Number != LorenciaMapNumber)
         {
             return;
         }
