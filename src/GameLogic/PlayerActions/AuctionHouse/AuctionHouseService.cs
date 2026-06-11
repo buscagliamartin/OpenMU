@@ -1207,6 +1207,23 @@ public class AuctionHouseService
         this.DetachItemGraph(context, mailboxItem.Item);
         if (!await this.AttachItemToPlayerContextAsync(player, inventoryItem).ConfigureAwait(false))
         {
+            // BarnaMu Auction House diagnostics (logging-only): the mailbox item clone could not be
+            // attached because an instance with the same id is already tracked/present. Log context to
+            // distinguish a true inventory duplicate from a stale tracked-context instance (the suspected
+            // "cannot claim/re-list until relog" limbo). This does NOT change control flow or item state.
+            var claimItemId = inventoryItem?.GetId() ?? Guid.Empty;
+            var itemInInventory = claimItemId != Guid.Empty
+                && (player.Inventory?.Items.Any(i => i.GetId() == claimItemId) ?? false);
+            player.Logger.LogWarning(
+                "Auction House claim diagnostic: AttachItemToPlayerContext returned false (\"already in inventory\"). Character={Character}, ListingNumber={ListingNumber}, ItemId={ItemId}, Group={Group}, Number={Number}, TargetSlot={TargetSlot}, ItemInInventory={ItemInInventory}, DuplicateKind={DuplicateKind}.",
+                player.SelectedCharacter?.Name,
+                listingNumber,
+                claimItemId,
+                inventoryItem?.Definition?.Group,
+                inventoryItem?.Definition?.Number,
+                targetSlot.Value,
+                itemInInventory,
+                itemInInventory ? "true-inventory-duplicate" : "tracked-context-stale");
             return $"Auction House: mailbox item #{listingNumber} is already in inventory.";
         }
 
@@ -1823,7 +1840,24 @@ public class AuctionHouseService
         var namedMatch = candidates.FirstOrDefault(itemOfSet =>
             itemOfSet.ItemSetGroup?.Name.ToString() is { Length: > 0 } setName
             && name.Contains(setName, StringComparison.OrdinalIgnoreCase));
-        return namedMatch ?? (candidates.Count == 1 ? candidates[0] : null);
+        var resolved = namedMatch ?? (candidates.Count == 1 ? candidates[0] : null);
+        if (resolved is null)
+        {
+            // BarnaMu Auction House diagnostics (logging-only): ancient set candidates exist for this
+            // item's group/number, but display-name resolution could not safely disambiguate (no name
+            // match and more than one candidate), so the ancient set is NOT restored on claim. Log
+            // context to diagnose ancient/option loss (e.g. a truncated display name dropping the set
+            // name). Behavior is unchanged — the same (null) result is returned.
+            player.Logger.LogWarning(
+                "Auction House ancient-restore diagnostic: {Count} ancient candidate(s) for Group={Group} Number={Number} but display-name resolution returned null. DisplayName=\"{DisplayName}\", ResolvedName=\"{ResolvedName}\".",
+                candidates.Count,
+                itemGroup,
+                itemNumber,
+                displayName,
+                name);
+        }
+
+        return resolved;
     }
 
     private static string GetDisplayNameWithoutSlotPrefix(string displayName)
