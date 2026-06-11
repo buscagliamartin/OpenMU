@@ -156,6 +156,26 @@ public sealed class OfflinePlayerMuHelper : AsyncDisposable
             return;
         }
 
+        // BarnaMu MuHelper Mode Runtime v1: consume the already-merged MuHelperMode metadata.
+        // BUFF mode force-casts the configured buffs and heals, and never attacks or moves (matching
+        // the messy server). ATTACK mode (the default) keeps the existing offline attack flow below,
+        // unchanged. Basic Attack mode is intentionally NOT implemented here (deferred — it requires
+        // core combat changes); until its runtime is migrated it falls back to the ATTACK flow. Note:
+        // clean's PerformBuffsAsync already casts the configured buffs unconditionally, so BUFF mode
+        // forces buffs simply by calling it — no BuffHandler change is needed (and adding the messy
+        // BuffOnDuration gate would instead alter the existing ATTACK buff behavior).
+        if ((this._player.MuHelperSettings?.Mode ?? MuHelperMode.Attack) == MuHelperMode.Buff)
+        {
+            if (!await this._buffHandler.PerformBuffsAsync().ConfigureAwait(false))
+            {
+                return;
+            }
+
+            await this._healingHandler.PerformHealthRecoveryAsync().ConfigureAwait(false);
+            return;
+        }
+
+        // ATTACK mode (default; Basic Attack mode also falls here until its runtime is migrated).
         // CMuHelper::Work() order: Buff → RecoverHealth → ObtainItem → Regroup → Attack
         if (!await this._buffHandler.PerformBuffsAsync().ConfigureAwait(false))
         {
