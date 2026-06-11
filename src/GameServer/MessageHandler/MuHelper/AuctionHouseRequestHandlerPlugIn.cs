@@ -158,6 +158,7 @@ public class AuctionHouseRequestHandlerPlugIn : ISubPacketHandlerPlugIn
         var result = await this._service.ClaimPayoutAsync(player, listingNumber).ConfigureAwait(false);
         await this.ShowMessageAsync(player, result).ConfigureAwait(false);
         await this.ShowPageAsync(player, ViewMailbox, 1, null).ConfigureAwait(false);
+        await this.ShowPageAsync(player, ViewPayouts, 1, null).ConfigureAwait(false);
     }
 
     private async ValueTask ShowPageAsync(Player player, byte view, byte page, AuctionHouseListingFilter? filter)
