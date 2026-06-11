@@ -129,6 +129,29 @@ public sealed class CombatHandler
     }
 
     /// <summary>
+    /// Performs a normal physical (basic) attack on the current monster target, ignoring the
+    /// configured helper skills. Used by MuHelper BASIC ATTACK mode. Reuses the existing monster-only
+    /// targeting and physical-attack path; it never moves/regroups and never targets players.
+    /// </summary>
+    /// <returns>A value task representing the asynchronous operation.</returns>
+    public async ValueTask PerformBasicAttackAsync()
+    {
+        this.RefreshTarget();
+        if (this._currentTarget is null)
+        {
+            return;
+        }
+
+        if (!this.IsTargetInAttackRange(this._currentTarget, this.GetEffectiveAttackRange()))
+        {
+            // BASIC ATTACK mode never moves; skip out-of-range targets.
+            return;
+        }
+
+        await this.ExecutePhysicalAttackAsync(this._currentTarget).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Performs health recovery through Drain Life attacks if configured.
     /// </summary>
     public async ValueTask PerformDrainLifeRecoveryAsync()
