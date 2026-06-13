@@ -7,6 +7,7 @@ and software architecture.
 Technical notes:
 
 * [Auction House](AuctionHouse.md)
+* [Migration Checkpoint](MigrationCheckpoint.md)
 
 ## Why not using the wiki?
 
