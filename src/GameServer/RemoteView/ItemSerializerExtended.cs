@@ -54,13 +54,14 @@ public class ItemSerializerExtended : IItemSerializer
         targetStruct.Level = item.IsTrainablePet() ? (byte)0 : (byte)item.Level;
         targetStruct.Durability = item.Durability();
         targetStruct.Options = this.GetOptionFlags(item);
+        var resolvedOptions = GetResolvedItemOptions(item).ToList();
 
-        if (item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.Option) is { } itemOption)
+        if (resolvedOptions.FirstOrDefault(o => o.Option.OptionType == ItemOptionTypes.Option) is { Link: { } itemOptionLink, Option: { } itemOption })
         {
-            targetStruct.OptionLevel = (byte)(itemOption.Level & 0xF);
+            targetStruct.OptionLevel = (byte)(itemOptionLink.Level & 0xF);
 
             // Some items (wings) can have different options (3rd wings up to 3!)
-            targetStruct.OptionType = (byte)((itemOption.ItemOption?.Number ?? 0) & 0xF);
+            targetStruct.OptionType = (byte)(itemOption.Number & 0xF);
         }
 
         if (targetStruct.Options.HasFlag(OptionFlags.HasExcellent))
@@ -75,7 +76,7 @@ public class ItemSerializerExtended : IItemSerializer
             targetStruct.AncientDiscriminator = (byte)ancientSet.AncientSetDiscriminator;
 
             // An ancient item may or may not have an ancient bonus option. Example without bonus: Gywen Pendant.
-            if (item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.AncientBonus) is { } ancientBonus)
+            if (resolvedOptions.FirstOrDefault(o => o.Option.OptionType == ItemOptionTypes.AncientBonus) is { Link: { } ancientBonus })
             {
                 targetStruct.AncientBonusLevel = (byte)ancientBonus.Level;
             }
@@ -160,7 +161,8 @@ public class ItemSerializerExtended : IItemSerializer
     private OptionFlags GetOptionFlags(Item item)
     {
         OptionFlags result = default;
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Luck))
+        var resolvedOptions = GetResolvedItemOptions(item).ToList();
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.Luck))
         {
             result |= OptionFlags.HasLuck;
         }
@@ -170,21 +172,21 @@ public class ItemSerializerExtended : IItemSerializer
             result |= OptionFlags.HasSkill;
         }
 
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Option))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.Option))
         {
             result |= OptionFlags.HasOption;
         }
 
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Excellent
-                                      || o.ItemOption?.OptionType == ItemOptionTypes.Wing
-                                      || o.ItemOption?.OptionType == ItemOptionTypes.BlackFenrir
-                                      || o.ItemOption?.OptionType == ItemOptionTypes.BlueFenrir
-                                      || o.ItemOption?.OptionType == ItemOptionTypes.GoldFenrir))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.Excellent
+                                     || o.Option.OptionType == ItemOptionTypes.Wing
+                                     || o.Option.OptionType == ItemOptionTypes.BlackFenrir
+                                     || o.Option.OptionType == ItemOptionTypes.BlueFenrir
+                                     || o.Option.OptionType == ItemOptionTypes.GoldFenrir))
         {
             result |= OptionFlags.HasExcellent;
         }
 
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.HarmonyOption))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.HarmonyOption))
         {
             result |= OptionFlags.HasHarmony;
         }
@@ -194,7 +196,7 @@ public class ItemSerializerExtended : IItemSerializer
             result |= OptionFlags.HasAncient;
         }
 
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.GuardianOption))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.GuardianOption))
         {
             result |= OptionFlags.HasGuardian;
         }

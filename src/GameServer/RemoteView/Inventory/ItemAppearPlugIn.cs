@@ -5,10 +5,12 @@
 namespace MUnique.OpenMU.GameServer.RemoteView.Inventory;
 
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.Network;
 using MUnique.OpenMU.Network.Packets.ServerToClient;
+using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -36,6 +38,10 @@ public class ItemAppearPlugIn : IItemAppearPlugIn
             return;
         }
 
+        var itemSize = 0;
+        var packetSize = 0;
+        var logItemBytes = this._player.Logger.IsEnabled(LogLevel.Debug);
+        var serializedItemBytes = string.Empty;
         int Write()
         {
             var itemSerializer = this._player.ItemSerializer;
@@ -45,13 +51,32 @@ public class ItemAppearPlugIn : IItemAppearPlugIn
             {
                 InventorySlot = newItem.ItemSlot,
             };
-            var itemSize = itemSerializer.SerializeItem(packet.ItemData, newItem);
+            itemSize = itemSerializer.SerializeItem(packet.ItemData, newItem);
+            if (logItemBytes)
+            {
+                serializedItemBytes = Convert.ToHexString(packet.ItemData[..itemSize]);
+            }
 
             var actualSize = ItemAddedToInventoryRef.GetRequiredSize(itemSize);
             span.Slice(0, actualSize).SetPacketSize();
+            packetSize = actualSize;
             return actualSize;
         }
 
         await connection.SendAsync(Write).ConfigureAwait(false);
+        if (logItemBytes)
+        {
+            this._player.Logger.LogDebug(
+                "Inventory item packet bytes. Path=ItemAddedToInventory(0x22), Character={Character}, ItemId={ItemId}, Slot={Slot}, Group={Group}, Number={Number}, Level={Level}, ItemSize={ItemSize}, PacketSize={PacketSize}, Bytes={Bytes}.",
+                this._player.SelectedCharacter?.Name,
+                newItem.GetId(),
+                newItem.ItemSlot,
+                newItem.Definition?.Group,
+                newItem.Definition?.Number,
+                newItem.Level,
+                itemSize,
+                packetSize,
+                serializedItemBytes);
+        }
     }
 }

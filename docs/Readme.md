@@ -4,6 +4,10 @@ This directory should contain all the (technical) documentation of the OpenMU
 project, including [packets descriptions](Packets/Readme.md), game mechanics
 and software architecture.
 
+Technical notes:
+
+* [Auction House](AuctionHouse.md)
+
 ## Why not using the wiki?
 
 We think that a lot of the documentation (especially packet descriptions) is

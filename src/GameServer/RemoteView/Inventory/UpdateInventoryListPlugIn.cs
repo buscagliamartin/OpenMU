@@ -10,6 +10,7 @@ using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.Network;
 using MUnique.OpenMU.Network.Packets.ServerToClient;
+using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
@@ -31,6 +32,13 @@ public class UpdateInventoryListPlugIn : IUpdateInventoryListPlugIn
     /// <inheritdoc/>
     public async ValueTask UpdateInventoryListAsync()
     {
+        var items = this._player.Inventory?.Items ?? this._player.SelectedCharacter?.Inventory?.Items ?? Enumerable.Empty<Item>();
+        await this.UpdateInventoryListAsync(items).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask UpdateInventoryListAsync(IEnumerable<Item> inventoryItems)
+    {
         var connection = this._player.Connection;
         if (connection is null)
         {
@@ -38,11 +46,16 @@ public class UpdateInventoryListPlugIn : IUpdateInventoryListPlugIn
         }
 
         // C4 00 00 00 F3 10 ...
-        var items = (this._player.Inventory?.Items ?? this._player.SelectedCharacter?.Inventory?.Items ?? Enumerable.Empty<Item>())
+        var items = inventoryItems
             .OrderBy(item => item.ItemSlot)
             .ToList();
+        var packetSize = 0;
+        var serializedItemCount = 0;
+        var logItemBytes = this._player.Logger.IsEnabled(LogLevel.Debug);
+        var serializedItems = new List<(Guid ItemId, byte Slot, int? Group, int? Number, byte Level, int ItemSize, string Bytes)>();
         int Write()
         {
+            serializedItems.Clear();
             var itemSerializer = this._player.ItemSerializer;
             var lengthPerItem = StoredItemRef.GetRequiredSize(itemSerializer.NeededSpace);
             var size = CharacterInventoryRef.GetRequiredSize(items.Count, lengthPerItem);
@@ -76,14 +89,50 @@ public class UpdateInventoryListPlugIn : IUpdateInventoryListPlugIn
                 var storedItem = new StoredItemRef(span[actualSize..]);
                 storedItem.ItemSlot = item.ItemSlot;
                 var itemSize = itemSerializer.SerializeItem(storedItem.ItemData, item);
+                if (logItemBytes)
+                {
+                    serializedItems.Add((
+                        item.GetId(),
+                        item.ItemSlot,
+                        item.Definition?.Group,
+                        item.Definition?.Number,
+                        item.Level,
+                        itemSize,
+                        Convert.ToHexString(storedItem.ItemData[..itemSize])));
+                }
+
                 actualSize += StoredItemRef.GetRequiredSize(itemSize);
                 packet.ItemCount++;
             }
 
             span.Slice(0, actualSize).SetPacketSize();
+            packetSize = actualSize;
+            serializedItemCount = packet.ItemCount;
             return actualSize;
         }
 
         await connection.SendAsync(Write).ConfigureAwait(false);
+        this._player.Logger.LogInformation(
+            "Inventory full sync packet sent. Path=CharacterInventory(F3-10), Character={Character}, ItemCount={ItemCount}, PacketSize={PacketSize}.",
+            this._player.SelectedCharacter?.Name,
+            serializedItemCount,
+            packetSize);
+        if (logItemBytes)
+        {
+            foreach (var serializedItem in serializedItems)
+            {
+                this._player.Logger.LogDebug(
+                    "Inventory item packet bytes. Path=CharacterInventory(F3-10), Character={Character}, ItemId={ItemId}, Slot={Slot}, Group={Group}, Number={Number}, Level={Level}, ItemSize={ItemSize}, PacketSize={PacketSize}, Bytes={Bytes}.",
+                    this._player.SelectedCharacter?.Name,
+                    serializedItem.ItemId,
+                    serializedItem.Slot,
+                    serializedItem.Group,
+                    serializedItem.Number,
+                    serializedItem.Level,
+                    serializedItem.ItemSize,
+                    packetSize,
+                    serializedItem.Bytes);
+            }
+        }
     }
 }

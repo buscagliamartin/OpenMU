@@ -29,6 +29,14 @@ public class AuctionHouseRequestHandlerPlugIn : ISubPacketHandlerPlugIn
     private const byte ViewMailbox = 2;
     private const byte ViewPayouts = 3;
 
+    /// <summary>
+    /// Reserved op-6 listing-number value meaning "claim ALL pending mailbox entries" (items + payouts) in
+    /// one batched server pass. Real listing numbers are small sequential values, so this max-uint sentinel
+    /// never collides. The wire format / packet contract is unchanged (still op 6 with the listing-number
+    /// field); only this reserved value selects the batched path.
+    /// </summary>
+    private const uint ClaimAllSentinel = 0xFFFFFFFFu;
+
     private readonly AuctionHouseService _service = new();
 
     /// <inheritdoc/>
@@ -88,7 +96,15 @@ public class AuctionHouseRequestHandlerPlugIn : ISubPacketHandlerPlugIn
             case 6:
                 if (span.Length >= 12)
                 {
-                    await this.ReceiveAsync(player, BinaryPrimitives.ReadUInt32LittleEndian(span.Slice(8, 4))).ConfigureAwait(false);
+                    var receiveNumber = BinaryPrimitives.ReadUInt32LittleEndian(span.Slice(8, 4));
+                    if (receiveNumber == ClaimAllSentinel)
+                    {
+                        await this.ClaimAllAsync(player).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await this.ReceiveAsync(player, receiveNumber).ConfigureAwait(false);
+                    }
                 }
 
                 break;
@@ -149,6 +165,15 @@ public class AuctionHouseRequestHandlerPlugIn : ISubPacketHandlerPlugIn
     private async ValueTask ReceiveAsync(Player player, uint listingNumber)
     {
         var result = await this._service.ReceiveAsync(player, listingNumber).ConfigureAwait(false);
+        await this.ShowMessageAsync(player, result).ConfigureAwait(false);
+        await this.ShowPageAsync(player, ViewMailbox, 1, null).ConfigureAwait(false);
+    }
+
+    private async ValueTask ClaimAllAsync(Player player)
+    {
+        // Batched: one service call claims every pending mailbox entry, then ONE mailbox view refresh
+        // (instead of the old per-row op 6/op 8 each triggering its own claim + refresh).
+        var result = await this._service.ClaimAllMailboxAsync(player).ConfigureAwait(false);
         await this.ShowMessageAsync(player, result).ConfigureAwait(false);
         await this.ShowPageAsync(player, ViewMailbox, 1, null).ConfigureAwait(false);
     }

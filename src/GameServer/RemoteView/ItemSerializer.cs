@@ -51,17 +51,18 @@ public class ItemSerializer : IItemSerializer
         var itemLevel = item.IsTrainablePet() ? 0 : item.Level;
         target[1] = (byte)((itemLevel << 3) & LevelMask);
 
-        var itemOption = item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.Option);
-        if (itemOption != null)
+        var resolvedOptions = GetResolvedItemOptions(item).ToList();
+        var itemOption = resolvedOptions.FirstOrDefault(o => o.Option.OptionType == ItemOptionTypes.Option);
+        if (itemOption.Option != null)
         {
-            var optionLevel = itemOption.Level;
+            var optionLevel = itemOption.Link.Level;
 
             // A dinorant can normally have up to 2 options, all being coded in the item option level.
             // A one-option dino has level = 1, 2, or 4; a two-option has level = 3, 5, or 6.
             if (item.Definition.Skill?.Number == 49)
             {
-                item.ItemOptions.Where(o => o.ItemOption?.OptionType == ItemOptionTypes.Option && o != itemOption)
-                    .ForEach(o => optionLevel |= o.Level);
+                resolvedOptions.Where(o => o.Option.OptionType == ItemOptionTypes.Option && o.Link != itemOption.Link)
+                    .ForEach(o => optionLevel |= o.Link.Level);
             }
 
             // The item option level is splitted into 2 parts. Webzen... :-/
@@ -70,9 +71,9 @@ public class ItemSerializer : IItemSerializer
 
             // Some items (wings) can have different options (3rd wings up to 3!)
             // Alternate options are set at array[startIndex + 3] |= 0x20 and 0x10
-            if (itemOption.ItemOption?.Number > 0)
+            if (itemOption.Option.Number > 0)
             {
-                target[3] |= (byte)((itemOption.ItemOption.Number & 0b11) << 4);
+                target[3] |= (byte)((itemOption.Option.Number & 0b11) << 4);
             }
         }
 
@@ -88,7 +89,7 @@ public class ItemSerializer : IItemSerializer
 
         target[3] |= GetFenrirByte(item);
 
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.Luck))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.Luck))
         {
             target[1] |= LuckFlag;
         }
@@ -104,15 +105,15 @@ public class ItemSerializer : IItemSerializer
             target[4] |= (byte)(ancientSet.AncientSetDiscriminator & AncientDiscriminatorMask);
 
             // An ancient item may or may not have an ancient bonus option. Example without bonus: Gywen Pendant.
-            var ancientBonus = item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.AncientBonus);
-            if (ancientBonus != null)
+            var ancientBonus = resolvedOptions.FirstOrDefault(o => o.Option.OptionType == ItemOptionTypes.AncientBonus);
+            if (ancientBonus.Option != null)
             {
-                target[4] |= (byte)((ancientBonus.Level << 2) & AncientBonusLevelMask);
+                target[4] |= (byte)((ancientBonus.Link.Level << 2) & AncientBonusLevelMask);
             }
         }
 
         target[5] = (byte)(item.Definition.Group << 4);
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.GuardianOption))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.GuardianOption))
         {
             target[5] |= GuardianOptionFlag;
         }

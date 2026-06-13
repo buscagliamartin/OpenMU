@@ -16,11 +16,18 @@ using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Composition;
 using MUnique.OpenMU.DataModel.Configuration;
 using Nito.AsyncEx;
+using DataGameConfiguration = MUnique.OpenMU.DataModel.Configuration.GameConfiguration;
+using DataItem = MUnique.OpenMU.DataModel.Entities.Item;
+using EfGameConfiguration = MUnique.OpenMU.Persistence.EntityFramework.Model.GameConfiguration;
+using EfIncreasableItemOption = MUnique.OpenMU.Persistence.EntityFramework.Model.IncreasableItemOption;
+using EfItem = MUnique.OpenMU.Persistence.EntityFramework.Model.Item;
+using EfItemDefinition = MUnique.OpenMU.Persistence.EntityFramework.Model.ItemDefinition;
+using EfItemOfItemSet = MUnique.OpenMU.Persistence.EntityFramework.Model.ItemOfItemSet;
 
 /// <summary>
 /// Abstract base class for an <see cref="IContext"/> which uses an <see cref="DbContext"/>.
 /// </summary>
-internal class EntityFrameworkContextBase : IContext
+internal class EntityFrameworkContextBase : IContext, IItemGraphLoader
 {
     private readonly bool _isOwner;
     private readonly IConfigurationChangeListener? _changeListener;
@@ -211,6 +218,64 @@ internal class EntityFrameworkContextBase : IContext
         return await this.GetRepository(type).GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyDictionary<Guid, DataItem>> LoadItemGraphsByIdsAsync(
+        IEnumerable<Guid> itemIds,
+        DataGameConfiguration gameConfiguration,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = itemIds.Where(id => id != Guid.Empty).Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, DataItem>();
+        }
+
+        if (gameConfiguration is not EfGameConfiguration efGameConfiguration)
+        {
+            this._logger.LogWarning(
+                "Batch item graph loading requires an EF game configuration, but got {GameConfigurationType}; using caller fallback.",
+                gameConfiguration.GetType().FullName);
+            return new Dictionary<Guid, DataItem>();
+        }
+
+        using var l = await this._lock.LockAsync(cancellationToken).ConfigureAwait(false);
+        using var context = this.RepositoryProvider.ContextStack.UseContext(this);
+
+        var items = await this.Context.Set<EfItem>()
+            .Where(item => ids.Contains(item.Id))
+            .Include(item => item.RawItemOptions)
+            .Include(item => item.JoinedItemSetGroups)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var itemDefinitionsById = efGameConfiguration.RawItems
+            .DistinctBy(definition => definition.Id)
+            .ToDictionary(definition => definition.Id);
+        var itemOptionsById = efGameConfiguration.RawItemOptions
+            .SelectMany(optionDefinition => optionDefinition.RawPossibleOptions)
+            .Concat(efGameConfiguration.RawItemSetGroups.SelectMany(group => group.RawOptions?.RawPossibleOptions ?? Enumerable.Empty<EfIncreasableItemOption>()))
+            .DistinctBy(option => option.Id)
+            .ToDictionary(option => option.Id);
+        var itemSetItemsById = efGameConfiguration.RawItemSetGroups
+            .SelectMany(group => group.RawItems)
+            .DistinctBy(itemOfSet => itemOfSet.Id)
+            .ToDictionary(itemOfSet => itemOfSet.Id);
+
+        var result = new Dictionary<Guid, DataItem>(items.Count);
+        foreach (var item in items)
+        {
+            if (TryResolveBatchItemGraph(item, itemDefinitionsById, itemOptionsById, itemSetItemsById))
+            {
+                MarkLoaded(item.RawItemOptions);
+                MarkLoaded(item.JoinedItemSetGroups);
+                result[item.Id] = item;
+            }
+        }
+
+        return result;
+    }
+
     /// <inheritdoc/>
     public async ValueTask<IEnumerable<T>> GetAsync<T>(CancellationToken cancellationToken)
         where T : class
@@ -301,6 +366,52 @@ internal class EntityFrameworkContextBase : IContext
         }
 
         throw new RepositoryNotFoundException(type);
+    }
+
+    private static bool TryResolveBatchItemGraph(
+        EfItem item,
+        IReadOnlyDictionary<Guid, EfItemDefinition> itemDefinitionsById,
+        IReadOnlyDictionary<Guid, EfIncreasableItemOption> itemOptionsById,
+        IReadOnlyDictionary<Guid, EfItemOfItemSet> itemSetItemsById)
+    {
+        if (item.DefinitionId is not { } definitionId
+            || !itemDefinitionsById.TryGetValue(definitionId, out var definition))
+        {
+            return false;
+        }
+
+        item.RawDefinition = definition;
+
+        foreach (var optionLink in item.RawItemOptions)
+        {
+            if (optionLink.ItemOptionId is not { } optionId
+                || !itemOptionsById.TryGetValue(optionId, out var option))
+            {
+                return false;
+            }
+
+            optionLink.RawItemOption = option;
+        }
+
+        foreach (var joinedItemSet in item.JoinedItemSetGroups)
+        {
+            if (!itemSetItemsById.TryGetValue(joinedItemSet.ItemOfItemSetId, out var itemOfSet))
+            {
+                return false;
+            }
+
+            joinedItemSet.ItemOfItemSet = itemOfSet;
+        }
+
+        return true;
+    }
+
+    private static void MarkLoaded(object collection)
+    {
+        if (collection is ILoadingStatusAware loadingStatusAware)
+        {
+            loadingStatusAware.LoadingStatus = LoadingStatus.Loaded;
+        }
     }
 
     private void ForEachAggregate(object obj, Action<object> action)

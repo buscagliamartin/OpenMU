@@ -4,6 +4,7 @@
 
 namespace MUnique.OpenMU.GameServer.RemoteView;
 
+using System.Reflection;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic;
@@ -62,6 +63,57 @@ public static class ItemSerializerHelper
     private static readonly byte[] SocketOptionIndexOffsets = { 0, 10, 16, 21, 29, 36 };
 
     /// <summary>
+    /// Resolves item option links, falling back to the stored option id when the navigation wasn't loaded.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <returns>The resolved option links.</returns>
+    internal static IEnumerable<(ItemOptionLink Link, IncreasableItemOption Option)> GetResolvedItemOptions(Item item)
+    {
+        foreach (var optionLink in item.ItemOptions)
+        {
+            if (ResolveItemOption(item, optionLink) is { } option)
+            {
+                yield return (optionLink, option);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resolves a single item option link, falling back to the stored option id when the navigation wasn't loaded.
+    /// </summary>
+    /// <param name="item">The item.</param>
+    /// <param name="optionLink">The option link.</param>
+    /// <returns>The resolved option, if available.</returns>
+    internal static IncreasableItemOption? ResolveItemOption(Item item, ItemOptionLink optionLink)
+    {
+        if (optionLink.ItemOption is { } loadedOption)
+        {
+            return loadedOption;
+        }
+
+        if (item.Definition is null || TryGetItemOptionId(optionLink) is not { } optionId)
+        {
+            return null;
+        }
+
+        return item.Definition.PossibleItemOptions
+                   .SelectMany(optionDefinition => optionDefinition.PossibleOptions)
+                   .FirstOrDefault(option => option.GetId() == optionId)
+               ?? item.ItemSetGroups
+                   .Select(itemSet => itemSet.BonusOption)
+                   .FirstOrDefault(option => option?.GetId() == optionId);
+    }
+
+    private static Guid? TryGetItemOptionId(ItemOptionLink optionLink)
+    {
+        var optionId = optionLink.GetType()
+            .GetProperty("ItemOptionId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?.GetValue(optionLink);
+
+        return optionId is Guid guid ? guid : null;
+    }
+
+    /// <summary>
     /// Gets the excellent (or wing) option byte for an item.
     /// </summary>
     /// <param name="item">The item.</param>
@@ -69,11 +121,13 @@ public static class ItemSerializerHelper
     public static byte GetExcellentByte(Item item)
     {
         byte result = 0;
-        var excellentOptions = item.ItemOptions.Where(o => o.ItemOption?.OptionType == ItemOptionTypes.Excellent || o.ItemOption?.OptionType == ItemOptionTypes.Wing);
+        var excellentOptions = GetResolvedItemOptions(item)
+            .Where(option => option.Option.OptionType == ItemOptionTypes.Excellent
+                             || option.Option.OptionType == ItemOptionTypes.Wing);
 
         foreach (var option in excellentOptions)
         {
-            result |= (byte)(1 << (option.ItemOption!.Number - 1));
+            result |= (byte)(1 << (option.Option.Number - 1));
         }
 
         return result;
@@ -87,11 +141,11 @@ public static class ItemSerializerHelper
     public static byte GetHarmonyByte(Item item)
     {
         byte result = 0;
-        var harmonyOption = item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.HarmonyOption);
-        if (harmonyOption?.ItemOption is not null)
+        var harmonyOption = GetResolvedItemOptions(item).FirstOrDefault(o => o.Option.OptionType == ItemOptionTypes.HarmonyOption);
+        if (harmonyOption.Option is not null)
         {
-            result = (byte)(harmonyOption.ItemOption.Number << 4);
-            result |= (byte)harmonyOption.Level;
+            result = (byte)(harmonyOption.Option.Number << 4);
+            result |= (byte)harmonyOption.Link.Level;
         }
 
         return result;
@@ -109,10 +163,10 @@ public static class ItemSerializerHelper
             return 0;
         }
 
-        var bonusOption = item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.SocketBonusOption);
-        if (bonusOption?.ItemOption != null)
+        var bonusOption = GetResolvedItemOptions(item).FirstOrDefault(o => o.Option.OptionType == ItemOptionTypes.SocketBonusOption);
+        if (bonusOption.Option is not null)
         {
-            return (byte)bonusOption.ItemOption.Number;
+            return (byte)bonusOption.Option.Number;
         }
 
         return 0xFF;
@@ -132,15 +186,16 @@ public static class ItemSerializerHelper
 
         byte GetSocketByte(int socketSlot)
         {
-            var optionLink = item.ItemOptions.FirstOrDefault(o => o.ItemOption?.OptionType == ItemOptionTypes.SocketOption && o.Index == socketSlot);
-            if (optionLink is null)
+            var optionLink = GetResolvedItemOptions(item)
+                .FirstOrDefault(o => o.Option.OptionType == ItemOptionTypes.SocketOption && o.Link.Index == socketSlot);
+            if (optionLink.Option is null)
             {
                 return EmptySocket;
             }
 
-            var sphereLevel = optionLink.Level;
-            var elementType = optionLink.ItemOption!.SubOptionType;
-            var elementOption = optionLink.ItemOption.Number;
+            var sphereLevel = optionLink.Link.Level;
+            var elementType = optionLink.Option.SubOptionType;
+            var elementOption = optionLink.Option.Number;
             var optionIndex = SocketOptionIndexOffsets[elementType] + elementOption;
 
             return (byte)((sphereLevel * MaximumSocketOptions) + optionIndex);
@@ -295,17 +350,18 @@ public static class ItemSerializerHelper
     public static byte GetFenrirByte(Item item)
     {
         byte result = 0;
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.BlackFenrir))
+        var resolvedOptions = GetResolvedItemOptions(item).ToList();
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.BlackFenrir))
         {
             result |= BlackFenrirFlag;
         }
 
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.BlueFenrir))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.BlueFenrir))
         {
             result |= BlueFenrirFlag;
         }
 
-        if (item.ItemOptions.Any(o => o.ItemOption?.OptionType == ItemOptionTypes.GoldFenrir))
+        if (resolvedOptions.Any(o => o.Option.OptionType == ItemOptionTypes.GoldFenrir))
         {
             result |= GoldFenrirFlag;
         }
